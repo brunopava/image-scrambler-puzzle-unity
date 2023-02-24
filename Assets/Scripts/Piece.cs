@@ -19,6 +19,8 @@ public class Piece : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, I
     float clickdelay = 0.5f;
     //===========
 
+    public Vector3 originalPosition;
+
     public void OnPointerDown(PointerEventData pointerEventData)
     {
         OnDoubleClick();
@@ -36,72 +38,81 @@ public class Piece : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, I
 
     public void OnDrag(PointerEventData data)
     {
-        isMovingLeft = false;
-        isMovingUp = false;
-        isMovingDown = false;
-        isMovingRight = false;
-
-        float distanceX = Input.mousePosition.x - initialDragPosition.x;
-        float distanceY = Input.mousePosition.y - initialDragPosition.y;
-
-        float positiveX = Mathf.Abs(distanceX);
-        float positiveY = Mathf.Abs(distanceY);
-
-        if(positiveX > positiveY)
+        switch(grid.gameMode)
         {
-            Vector3 newPosition = new Vector3(Input.mousePosition.x, initialDragPosition.y, 1f);
-            
-            if(gameCell.rightCell != null)
-            {
-                if(Input.mousePosition.x > gameCell.rightCell.transform.position.x)
+            case(GameMode.scramble):
+                isMovingLeft = false;
+                isMovingUp = false;
+                isMovingDown = false;
+                isMovingRight = false;
+
+                float distanceX = Input.mousePosition.x - initialDragPosition.x;
+                float distanceY = Input.mousePosition.y - initialDragPosition.y;
+
+                float positiveX = Mathf.Abs(distanceX);
+                float positiveY = Mathf.Abs(distanceY);
+
+                Vector3 newPosition = Vector3.zero;
+
+                if(positiveX > positiveY)
                 {
-                    newPosition = gameCell.rightCell.transform.position;
+                    newPosition = new Vector3(Input.mousePosition.x, initialDragPosition.y, 1f);
+                    
+                    if(gameCell.rightCell != null)
+                    {
+                        if(Input.mousePosition.x > gameCell.rightCell.transform.position.x)
+                        {
+                            newPosition = gameCell.rightCell.transform.position;
+                        }
+                    }
+
+                    if(gameCell.leftCell != null)
+                    {
+                        if(Input.mousePosition.x < gameCell.leftCell.transform.position.x)
+                        {
+                            newPosition = gameCell.leftCell.transform.position;
+                        }
+                    }
+
+                    if(distanceX > 0)
+                    {
+                        isMovingRight = true;
+                    }else{
+                        isMovingLeft = true;
+                    }
+                }else{
+                    newPosition = new Vector3(initialDragPosition.x, Input.mousePosition.y, 1f);
+
+                    if(gameCell.upperCell != null)
+                    {
+                        if(Input.mousePosition.y > gameCell.upperCell.transform.position.y)
+                        {
+                            newPosition = gameCell.upperCell.transform.position;
+                        }
+                    }
+
+                    if(gameCell.lowerCell != null)
+                    {
+                        if(Input.mousePosition.y < gameCell.lowerCell.transform.position.y)
+                        {
+                            newPosition = gameCell.lowerCell.transform.position;
+                        }
+                    }
+
+                    if(distanceY > 0)
+                    {
+                        isMovingUp = true;
+                    }else{
+                        isMovingDown = true;
+                    }
+
                 }
-            }
+                transform.position = newPosition;
+            break;
 
-            if(gameCell.leftCell != null)
-            {
-                if(Input.mousePosition.x < gameCell.leftCell.transform.position.x)
-                {
-                    newPosition = gameCell.leftCell.transform.position;
-                }
-            }
-
-            if(distanceX > 0)
-            {
-                isMovingRight = true;
-            }else{
-                isMovingLeft = true;
-            }
-
-            transform.position = newPosition;
-        }else{
-            Vector3 newPosition = new Vector3(initialDragPosition.x, Input.mousePosition.y, 1f);
-
-            if(gameCell.upperCell != null)
-            {
-                if(Input.mousePosition.y > gameCell.upperCell.transform.position.y)
-                {
-                    newPosition = gameCell.upperCell.transform.position;
-                }
-            }
-
-            if(gameCell.lowerCell != null)
-            {
-                if(Input.mousePosition.y < gameCell.lowerCell.transform.position.y)
-                {
-                    newPosition = gameCell.lowerCell.transform.position;
-                }
-            }
-
-            if(distanceY > 0)
-            {
-                isMovingUp = true;
-            }else{
-                isMovingDown = true;
-            }
-
-            transform.position = newPosition;
+            case(GameMode.jigsaw):
+                transform.position = Input.mousePosition;
+            break;
         }
     }
 
@@ -111,30 +122,58 @@ public class Piece : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, I
     public void OnBeginDrag(PointerEventData eventData)
     {
         initialDragPosition = transform.position;
-
         GetComponent<RectTransform>().SetAsLastSibling();
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        if(isMovingDown)
+        switch(grid.gameMode)
         {
-            grid.SwapPieces(this, gameCell.lowerCell.pieceOnTop);
-        }
+            case(GameMode.scramble):
+                if(isMovingDown)
+                {
+                    grid.SwapPieces(this, gameCell.lowerCell.pieceOnTop);
+                }
 
-        if(isMovingUp)
-        {
-            grid.SwapPieces(this, gameCell.upperCell.pieceOnTop);
-        }
+                if(isMovingUp)
+                {
+                    grid.SwapPieces(this, gameCell.upperCell.pieceOnTop);
+                }
 
-        if(isMovingLeft)
-        {
-            grid.SwapPieces(this, gameCell.leftCell.pieceOnTop);
-        }
+                if(isMovingLeft)
+                {
+                    grid.SwapPieces(this, gameCell.leftCell.pieceOnTop);
+                }
 
-        if(isMovingRight)
-        {
-            grid.SwapPieces(this, gameCell.rightCell.pieceOnTop);
+                if(isMovingRight)
+                {
+                    grid.SwapPieces(this, gameCell.rightCell.pieceOnTop);
+                }
+            break;
+
+            case(GameMode.jigsaw):
+
+                bool isInPlace = false; 
+                GameCell targetCell = null;
+
+                foreach(GameCell current in grid.allCells)
+                {
+                    RectTransform rect = current.GetComponent<RectTransform>();
+                    isInPlace = IsPositionWithinBounds(Input.mousePosition, rect);
+
+                    if(isInPlace)
+                    {
+                        targetCell = current;
+                        grid.SnapInPlace(this, targetCell);
+                        break;
+                    }
+                }
+
+                if(!isInPlace)
+                {
+                    transform.DOMove(originalPosition, 0.5f);
+                }
+            break;
         }
     }
 
@@ -171,5 +210,23 @@ public class Piece : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, I
     public void OnPointerExit(PointerEventData pointerEventData)
     {
 
+    }
+
+    public bool IsPositionWithinBounds(Vector3 position, RectTransform target)
+    {
+        Vector3[] corners = new Vector3[4];
+        target.GetWorldCorners(corners);
+
+        float left = corners[0].x;
+        float right = corners[2].x;
+        float bottom = corners[0].y;
+        float top = corners[1].y;
+
+        if (position.x >= left && position.x <= right && position.y >= bottom && position.y <= top)
+        {
+            return true;
+        }
+
+        return false;
     }
 }

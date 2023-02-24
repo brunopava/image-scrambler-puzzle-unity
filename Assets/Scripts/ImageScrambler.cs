@@ -5,8 +5,16 @@ using System.Collections;
 using System.Collections.Generic;
 using DG.Tweening;
 
+public enum GameMode
+{
+    scramble,
+    jigsaw
+}
+
 public class ImageScrambler : MonoBehaviour
 {
+    public GameMode gameMode;
+
     public Texture2D sourceImage;
 
     public int gridSizeX;
@@ -20,13 +28,21 @@ public class ImageScrambler : MonoBehaviour
 
     public List<List<GameCell>> cellRows;
     public List<List<GameCell>> cellColumns;
+    public List<GameCell> allCells;
 
     public List<Piece> pieces;
+
+    public Image piecesContainer;
 
     private void Start()
     {
         LoadImage(sourceImage);
         ShuffleCells();
+
+        if(gameMode == GameMode.jigsaw)
+        {
+            DistributeImages(pieces);
+        }
     }
 
     public void LoadImage(Texture2D source)
@@ -34,6 +50,7 @@ public class ImageScrambler : MonoBehaviour
         pieces = new List<Piece>();
         cellRows = new List<List<GameCell>>();
         cellColumns = new List<List<GameCell>>();
+        allCells = new List<GameCell>();
 
         pieceWidth = source.width / gridSizeX;
         pieceHeight = source.height / gridSizeY;
@@ -78,7 +95,7 @@ public class ImageScrambler : MonoBehaviour
 
                 pieceImage.rectTransform.anchoredPosition = new Vector2(posX, posY);
 
-                piece.gameCell = CreateGameCell(i, pieceImage);
+                piece.gameCell = CreateGameCell(i, j, pieceImage);
             }
         }
 
@@ -113,15 +130,18 @@ public class ImageScrambler : MonoBehaviour
         }
     }
 
-    public GameCell CreateGameCell(int rowIndex, Image current)
+    public GameCell CreateGameCell(int rowIndex, int columIndex,Image current)
     {
-        string cellName = string.Format("GameCell_{0}",rowIndex);
+        string cellName = string.Format("GameCell_{0}_{1}", rowIndex, columIndex);
 
         GameObject piece = new GameObject(cellName);
 
         GameCell cell = piece.AddComponent<GameCell>();
 
         Image pieceImage = piece.AddComponent<Image>();
+
+        Color randomColor = new Color(Random.value, Random.value, Random.value, 1.0f);
+        pieceImage.color = randomColor;
 
         RectTransform rect = pieceImage.GetComponent<RectTransform>();
 
@@ -132,6 +152,7 @@ public class ImageScrambler : MonoBehaviour
         rect.anchoredPosition = current.rectTransform.anchoredPosition;
 
         cellRows[rowIndex].Add(cell);
+        allCells.Add(cell);
 
         cell.correctPiece = current.GetComponent<Piece>();
 
@@ -181,6 +202,30 @@ public class ImageScrambler : MonoBehaviour
         }
     }
 
+    public void SnapInPlace(Piece target, GameCell place)
+    {
+        target.transform.DOMove(place.transform.position, 0.5f);
+
+        if(place.pieceOnTop != null && place.pieceOnTop != target)
+        {
+            place.pieceOnTop.transform.DOMove(place.pieceOnTop.originalPosition, 0.5f);
+            place.pieceOnTop = null;
+        }
+
+        target.gameCell = place;
+        place.pieceOnTop = target;
+
+        foreach(GameCell current in allCells)
+        {
+            if(current.pieceOnTop == target && current != place)
+            {
+                current.pieceOnTop = null;
+            }
+        }
+
+        CheckForVictory();
+    }
+
     public void CheckForVictory()
     {
         bool hasWon = true;
@@ -199,6 +244,34 @@ public class ImageScrambler : MonoBehaviour
         if(hasWon)
         {
             Debug.Log("VICTORY");
+        }
+    }
+
+    private void DistributeImages(List<Piece> imagesToDistribute)
+    {
+        RectTransform targetTransform = piecesContainer.rectTransform;
+        Rect targetBounds = targetTransform.rect;
+        
+        foreach (Piece image in imagesToDistribute)
+        {
+            RectTransform imageTransform = image.GetComponent<RectTransform>();
+            Rect imageBounds = imageTransform.rect;
+
+            image.transform.SetParent(piecesContainer.transform);
+            
+            // Calculate random position within target bounds
+            float x = Random.Range(targetBounds.xMin + imageBounds.width / 2, targetBounds.xMax - imageBounds.width / 2);
+            float y = Random.Range(targetBounds.yMin + imageBounds.height / 2, targetBounds.yMax - imageBounds.height / 2);
+            
+            // Set image position
+            imageTransform.DOLocalMove(new Vector3(x, y, imageTransform.position.z),0.5f).SetDelay(1f);
+
+            image.originalPosition = imageTransform.position;
+        }
+
+        foreach(GameCell current in allCells)
+        {
+            current.pieceOnTop = null;
         }
     }
 }
