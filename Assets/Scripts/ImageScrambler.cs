@@ -259,13 +259,10 @@ public class ImageScrambler : MonoBehaviour
 
             image.transform.SetParent(piecesContainer.transform);
             
-            // Calculate random position within target bounds
             float x = Random.Range(targetBounds.xMin + imageBounds.width / 2, targetBounds.xMax - imageBounds.width / 2);
             float y = Random.Range(targetBounds.yMin + imageBounds.height / 2, targetBounds.yMax - imageBounds.height / 2);
             
-            // Set image position
             imageTransform.DOLocalMove(new Vector3(x, y, imageTransform.position.z),0.5f).SetDelay(1f);
-
             image.originalPosition = imageTransform.position;
         }
 
